@@ -4,3 +4,4 @@ matplotlib
 ultralytics
 transformers
 pillow
+remotezip

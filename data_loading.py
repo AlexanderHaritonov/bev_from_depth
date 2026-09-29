@@ -59,6 +59,16 @@ class DataLoader:
         path = os.path.join(self.root_folder, "velodyne_points", "data", filename)
         return np.fromfile(path, dtype=np.float32).reshape(-1, 4)[:, :3]
 
+    def load_depth_gt(self, frame_number):
+        """Load the ground-truth depth map (meters, 0 = invalid) from KITTI Depth Completion."""
+        filename = f"{frame_number:010d}.png"
+        sync_name = os.path.basename(self.root_folder.rstrip("/"))
+        drive_dir = os.path.dirname(self.root_folder)
+        path = os.path.join(drive_dir, "depth_gt", "train", sync_name,
+                             "proj_depth", "groundtruth", "image_02", filename)
+        depth = cv2.imread(path, cv2.IMREAD_ANYDEPTH)
+        return depth.astype(np.float32) / 256.0
+
 def load_image(path):
     """Read an image file and return it as an RGB numpy array (H, W, 3)."""
     img = cv2.imread(path)
