@@ -26,3 +26,45 @@ def depth_to_points(depth, P):
     y = (v - cy) * z / fy
     return np.stack([x, y, z], axis=-1)
 
+def depth_jumps(depth, max_relative_jump):
+    """Boolean mask (H, W) of pixels whose depth differs from any valid 4-neighbor by more than max_relative_jump.
+    depth: (H, W) in meters, 0 = invalid."""
+    
+    assert depth.ndim == 2
+    jumps = np.zeros(depth.shape, dtype=bool)
+
+    # horizontal neighbors
+    a, b = depth[:, :-1], depth[:, 1:]
+    j = (a > 0) & (b > 0) & (np.abs(a - b) > max_relative_jump * np.minimum(a, b))
+    jumps[:, :-1] |= j
+    jumps[:, 1:] |= j
+
+    # vertical neighbors
+    a, b = depth[:-1, :], depth[1:, :]
+    j = (a > 0) & (b > 0) & (np.abs(a - b) > max_relative_jump * np.minimum(a, b))
+    jumps[:-1, :] |= j
+    jumps[1:, :] |= j
+
+    return jumps
+
+CAM_HEIGHT = 1.65  # KITTI camera mounting height above ground (m)
+BEV_MAX_Z = 37.5   # forward range (m)
+BEV_MAX_X = 20.0   # sideways range, each side (m)
+def filter_points(points, min_height=0.2, max_height=3.0, max_relative_jump=None):
+    """Boolean mask (H, W) of points to keep.
+    max_relative_jump: None skips the flying-pixel filter (not needed for ground truth; ~0.1 for mono/stereo)."""
+    x, y, z = points[..., 0], points[..., 1], points[..., 2]
+
+    # valid depth (0 = invalid) and within BEV range
+    mask = (z > 0) & (z <= BEV_MAX_Z) & (np.abs(x) <= BEV_MAX_X)
+
+    # height band above ground: drops the road and overhead objects (y points down)
+    height = CAM_HEIGHT - y
+    mask &= (height > min_height) & (height < max_height)
+
+    # flying pixels: interpolated depth between foreground and background at object edges
+    if max_relative_jump is not None:
+        mask &= ~depth_jumps(z, max_relative_jump)
+
+    return mask
+
