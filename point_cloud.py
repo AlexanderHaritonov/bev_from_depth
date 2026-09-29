@@ -48,9 +48,12 @@ def depth_jumps(depth, max_relative_jump):
     return jumps
 
 CAM_HEIGHT = 1.65  # KITTI camera mounting height above ground (m)
-BEV_MAX_Z = 37.5   # forward range (m)
-BEV_MAX_X = 20.0   # sideways range, each side (m)
-def filter_points(points, min_height=0.2, max_height=3.0, max_relative_jump=None):
+MIN_HEIGHT = CAM_HEIGHT - 1.2  # keep points less than 1.2 m below the camera (m)
+MAX_HEIGHT = np.inf            # no upper limit
+BEV_MIN_Z = -3.0   # BEV window: 3 m behind to 70 m ahead of the camera (m)
+BEV_MAX_Z = 70.0
+BEV_MAX_X = 50.0   # sideways, each side (m)
+def filter_points(points, min_height=MIN_HEIGHT, max_height=MAX_HEIGHT, max_relative_jump=None):
     """Boolean mask (H, W) of points to keep.
     max_relative_jump: None skips the flying-pixel filter (not needed for ground truth; ~0.1 for mono/stereo)."""
     x, y, z = points[..., 0], points[..., 1], points[..., 2]
@@ -58,7 +61,7 @@ def filter_points(points, min_height=0.2, max_height=3.0, max_relative_jump=None
     # valid depth (0 = invalid) and within BEV range
     mask = (z > 0) & (z <= BEV_MAX_Z) & (np.abs(x) <= BEV_MAX_X)
 
-    # height band above ground: drops the road and overhead objects (y points down)
+    # height band above ground: drops the road (y points down)
     height = CAM_HEIGHT - y
     mask &= (height > min_height) & (height < max_height)
 
