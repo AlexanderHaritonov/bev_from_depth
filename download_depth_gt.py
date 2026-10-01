@@ -11,19 +11,23 @@ DRIVES = {
 }
 
 
-def main(url):
-    with RemoteZip(url) as z:
-        for name in z.namelist():
+def download_depth_gt(url):
+    with RemoteZip(url) as archive:
+        for name in archive.namelist():
             if "groundtruth/image_02/" not in name or not name.endswith(".png"):
                 continue
             for drive, folder in DRIVES.items():
                 if drive in name:
                     out_dir = os.path.join(KITTI_DIR, folder, "depth_gt")
-                    z.extract(name, out_dir)
+                    archive.extract(name, out_dir)
                     print(name)
 
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) != 2:
         sys.exit("usage: python download_depth_gt.py <url of data_depth_annotated.zip>")
-    main(sys.argv[1])
+    download_depth_gt(sys.argv[1])
+
+
+if __name__ == "__main__":
+    main()
