@@ -99,8 +99,9 @@ _VIRIDIS_LUT = (colormaps["viridis"](np.arange(256))[:, :3] * 255).astype(np.uin
 # project_topview(cam_coords, image, colors)  # fix
 
 def points_to_bev(points):
-    """BEV image (BEV_H, BEV_W, 3), RGB uint8, from filtered camera-frame points (N, 3), drawn like
-    project_depthmap: white background, viridis colors by sideways distance. Forward (z) is up, x is right."""
+    """BEV image (BEV_H, BEV_W, 3), RGB uint8, from filtered camera-frame points (N, 3),
+     drawn: white background, viridis colors by sideways distance.
+     Forward (z) is up, x is right."""
     assert points.ndim == 2 and points.shape[1] == 3  # (N, 3), e.g. points[mask], not the (H, W, 3) grid
     x, z = points[:, 0], points[:, 2]
 

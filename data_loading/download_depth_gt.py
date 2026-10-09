@@ -3,7 +3,7 @@ import sys
 
 from remotezip import RemoteZip
 
-KITTI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "kitty_data")
+KITTI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "kitty_data")
 DRIVES = {
     "2011_09_26_drive_0001_sync": "drive1",
     "2011_09_26_drive_0009_sync": "drive9",
@@ -25,7 +25,7 @@ def download_depth_gt(url):
 
 def main():
     if len(sys.argv) != 2:
-        sys.exit("usage: python download_depth_gt.py <url of data_depth_annotated.zip>")
+        sys.exit("usage: python data_loading/download_depth_gt.py <url of data_depth_annotated.zip>")
     download_depth_gt(sys.argv[1])
 
 
