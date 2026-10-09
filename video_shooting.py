@@ -4,7 +4,7 @@ import cv2
 
 from bev import draw_ego_car, points_to_bev
 from data_loading.data_loading import DataLoader
-from point_cloud import depth_to_points, filter_points
+from point_cloud import depth_to_points, filter_points_for_bev
 
 GT_MARGIN = 5  # no depth ground truth for the first and last 5 frames of a drive
 
@@ -17,7 +17,7 @@ def _build_frame(dl, frame_number):
     """Camera image | BEV from the ground-truth depth, both 375 px high."""
     camera, _ = dl.load_stereo_pair(frame_number)
     points = depth_to_points(dl.load_depth_gt(frame_number), dl.P)
-    bev = points_to_bev(points[filter_points(points)])
+    bev = points_to_bev(points[filter_points_for_bev(points)])
     draw_ego_car(bev)
     return cv2.hconcat([camera, bev])
 

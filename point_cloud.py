@@ -1,5 +1,7 @@
 import numpy as np
 
+from constants import BEV_PARAMS
+
 # Reference (no numpy), same result as depth_to_points below:
 #
 # def depth_to_points(depth, P):
@@ -50,16 +52,14 @@ def depth_jumps(depth, max_relative_jump):
 CAM_HEIGHT = 1.65  # KITTI camera mounting height above ground (m)
 MIN_HEIGHT = CAM_HEIGHT - 1.2  # keep points less than 1.2 m below the camera (m)
 MAX_HEIGHT = np.inf            # no upper limit
-BEV_MIN_Z = -3.0   # BEV window: 3 m behind to 70 m ahead of the camera (m)
-BEV_MAX_Z = 70.0
-BEV_MAX_X = 50.0   # sideways, each side (m)
-def filter_points(points, min_height=MIN_HEIGHT, max_height=MAX_HEIGHT, max_relative_jump=None):
+
+def filter_points_for_bev(points, min_height=MIN_HEIGHT, max_height=MAX_HEIGHT, max_relative_jump=None):
     """Boolean mask (H, W) of points to keep.
     max_relative_jump: None skips the flying-pixel filter (not needed for ground truth; ~0.1 for mono/stereo)."""
     x, y, z = points[..., 0], points[..., 1], points[..., 2]
 
     # valid depth (0 = invalid) and within BEV range
-    mask = (z > 0) & (z <= BEV_MAX_Z) & (np.abs(x) <= BEV_MAX_X)
+    mask = (z > 0) & (z <= BEV_PARAMS.MAX_Y) & (np.abs(x) <= BEV_PARAMS.MAX_X)
 
     # height band above ground: drops the road (y points down)
     height = CAM_HEIGHT - y

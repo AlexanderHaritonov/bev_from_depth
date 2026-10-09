@@ -2,15 +2,12 @@ import cv2
 import numpy as np
 from matplotlib import colormaps
 
-from point_cloud import BEV_MIN_Z, BEV_MAX_Z, BEV_MAX_X
+from constants import BEV_PARAMS, EGO_WIDTH, EGO_LENGTH, EGO_FRONT
 
-BEV_H = 375                                # px, same as the camera image
-BEV_RES = (BEV_MAX_Z - BEV_MIN_Z) / BEV_H  # m per pixel, ~0.19
-BEV_W = round(2 * BEV_MAX_X / BEV_RES)     # 514 px
+BEV_MIN_Z, BEV_MAX_Z, BEV_MAX_X = BEV_PARAMS.MIN_Z, BEV_PARAMS.MAX_Y, BEV_PARAMS.MAX_X
 
-EGO_WIDTH = 1.8   # VW Passat B6, the KITTI car (m)
-EGO_LENGTH = 4.8
-EGO_FRONT = 2.0   # front bumper ahead of the camera (m), estimate
+BEV_RES = (BEV_MAX_Z - BEV_MIN_Z) / BEV_PARAMS.H  # m per pixel, ~0.19
+BEV_W = round(2 * BEV_MAX_X / BEV_RES)            # 514 px
 
 # viridis (matplotlib's default, as in project_depthmap) as a 256-entry RGB lookup table: low = purple, high = yellow
 _VIRIDIS_LUT = (colormaps["viridis"](np.arange(256))[:, :3] * 255).astype(np.uint8)
@@ -99,21 +96,21 @@ _VIRIDIS_LUT = (colormaps["viridis"](np.arange(256))[:, :3] * 255).astype(np.uin
 # project_topview(cam_coords, image, colors)  # fix
 
 def points_to_bev(points):
-    """BEV image (BEV_H, BEV_W, 3), RGB uint8, from filtered camera-frame points (N, 3),
+    """BEV image (BEV_PARAMS.H, BEV_W, 3), RGB uint8, from filtered camera-frame points (N, 3),
      drawn: white background, viridis colors by sideways distance.
      Forward (z) is up, x is right."""
     assert points.ndim == 2 and points.shape[1] == 3  # (N, 3), e.g. points[mask], not the (H, W, 3) grid
     x, z = points[:, 0], points[:, 2]
 
     # meters -> pixels; min() keeps points exactly on the edge (x = BEV_MAX_X) inside the image
-    rows = np.minimum(((BEV_MAX_Z - z) / BEV_RES).astype(int), BEV_H - 1)
+    rows = np.minimum(((BEV_MAX_Z - z) / BEV_RES).astype(int), BEV_PARAMS.H - 1)
     cols = np.minimum(((x + BEV_MAX_X) / BEV_RES).astype(int), BEV_W - 1)
 
     # color by sideways distance |x|, full color at 10 * sqrt(2) = 14.1 m, as project_depthmap
     t = np.minimum(1, np.abs(x) / 10 / np.sqrt(2))
 
     # points sharing a cell have almost the same x, so it doesn't matter which one is drawn
-    bev = np.full((BEV_H, BEV_W, 3), 255, dtype=np.uint8)
+    bev = np.full((BEV_PARAMS.H, BEV_W, 3), 255, dtype=np.uint8)
     bev[rows, cols] = _VIRIDIS_LUT[(t * 255).astype(int)]
     return bev
 
