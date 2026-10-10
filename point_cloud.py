@@ -17,7 +17,7 @@ from constants import BEV_PARAMS
 #     return points
 
 def depth_to_points(depth, P):
-    """Back-project a depth map (H, W) to camera-frame 3D points (H, W, 3): x right, y down, z forward."""
+    """Back-project a depth map (H, W) to camera-frame 3D points (H, W, 3) as x right, y down, z forward (m)."""
     # P: 3x4 camera projection matrix (intrinsics K + stereo baseline offset)
     
     fx, fy, cx, cy = P[0, 0], P[1, 1], P[0, 2], P[1, 2]

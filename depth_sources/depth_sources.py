@@ -5,7 +5,7 @@ from .stereo import get_depth_and_disparity
 
 MAX_RELATIVE_JUMP = 0.1  # flying-pixel filter for stereo and mono depth
 
-# Each function returns filtered camera-frame points (N, 3), ready for points_to_bev.
+# Each function returns filtered camera-frame points (N, 3) as x, y, z (m), ready for points_to_bev.
 
 def gt_points(dl, gt_depth):
     points = depth_to_points(gt_depth, dl.P)

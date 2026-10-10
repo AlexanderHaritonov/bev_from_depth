@@ -95,23 +95,43 @@ _VIRIDIS_LUT = (colormaps["viridis"](np.arange(256))[:, :3] * 255).astype(np.uin
 #
 # project_topview(cam_coords, image, colors)  # fix
 
-def points_to_bev(points):
-    """BEV image (BEV_PARAMS.H, BEV_W, 3), RGB uint8, from filtered camera-frame points (N, 3),
-     drawn: white background, viridis colors by sideways distance.
-     Forward (z) is up, x is right."""
-    assert points.ndim == 2 and points.shape[1] == 3  # (N, 3), e.g. points[mask], not the (H, W, 3) grid
-    x, z = points[:, 0], points[:, 2]
+GT_GREY = (200, 200, 200)  # ground truth under the stereo and mono points
+
+def _bev_indices(points3d):
+    """Takes filtered camera-frame points (N, 3) as x, y, z (m)
+    and computes their indices in the BEV image (rows and columns)."""
+
+    assert points3d.ndim == 2 and points3d.shape[1] == 3  # (N, 3), e.g. points[mask], not the (H, W, 3) grid
+    x, z = points3d[:, 0], points3d[:, 2]
 
     # meters -> pixels; min() keeps points exactly on the edge (x = BEV_MAX_X) inside the image
     rows = np.minimum(((BEV_MAX_Z - z) / BEV_RES).astype(int), BEV_PARAMS.H - 1)
     cols = np.minimum(((x + BEV_MAX_X) / BEV_RES).astype(int), BEV_W - 1)
+    return rows, cols
+
+def _blank_bev():
+    return np.full((BEV_PARAMS.H, BEV_W, 3), 255, dtype=np.uint8)
+
+def points_to_bev(points, bev=None):
+    """BEV image (BEV_PARAMS.H, BEV_W, 3), RGB uint8, from filtered camera-frame points (N, 3) as x, y, z (m),
+     drawn: viridis colors by sideways distance, on bev (in place) if given, else on white.
+     Forward (z) is up, x is right."""
+    rows, cols = _bev_indices(points)
 
     # color by sideways distance |x|, full color at 10 * sqrt(2) = 14.1 m, as project_depthmap
-    t = np.minimum(1, np.abs(x) / 10 / np.sqrt(2))
+    t = np.minimum(1, np.abs(points[:, 0]) / 10 / np.sqrt(2))
 
     # points sharing a cell have almost the same x, so it doesn't matter which one is drawn
-    bev = np.full((BEV_PARAMS.H, BEV_W, 3), 255, dtype=np.uint8)
+    if bev is None:
+        bev = _blank_bev()
     bev[rows, cols] = _VIRIDIS_LUT[(t * 255).astype(int)]
+    return bev
+
+def points_to_grey_bev(points):
+    """BEV image with the points in light grey on white, as background for points_to_bev."""
+    rows, cols = _bev_indices(points)
+    bev = _blank_bev()
+    bev[rows, cols] = GT_GREY
     return bev
 
 def draw_ego_car(bev):

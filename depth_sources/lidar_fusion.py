@@ -9,7 +9,7 @@ def cart2hom(pts_3d):
     return pts_3d_hom
 
 def velo_to_cam(pts_3d_velo, P, R0, V2C):
-    """Velodyne points (N, 3) to camera-frame 3D points (N, 3): x right, y down, z forward"""
+    """Velodyne points (N, 3) as x forward, y left, z up (m) to camera-frame points (N, 3) as x right, y down, z forward (m)."""
     # P with the intrinsics taken out, so the result stays in meters
     P_metric = np.linalg.inv(P[:, :3]) @ P # [I | shift to cam2] : [3x3] @ [3x4] -> [3x4]
     return project_velo_to_image_core(pts_3d_velo, P_metric, R0, V2C)
