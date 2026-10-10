@@ -59,7 +59,7 @@ def filter_points_for_bev(points, min_height=MIN_HEIGHT, max_height=MAX_HEIGHT, 
     x, y, z = points[..., 0], points[..., 1], points[..., 2]
 
     # valid depth (0 = invalid) and within BEV range
-    mask = (z > 0) & (z <= BEV_PARAMS.MAX_Y) & (np.abs(x) <= BEV_PARAMS.MAX_X)
+    mask = (z > 0) & (z <= BEV_PARAMS.MAX_Z) & (np.abs(x) <= BEV_PARAMS.MAX_X)
 
     # height band above ground: drops the road (y points down)
     height = CAM_HEIGHT - y

@@ -4,10 +4,10 @@ from matplotlib import colormaps
 
 from constants import BEV_PARAMS, EGO_WIDTH, EGO_LENGTH, EGO_FRONT
 
-BEV_MIN_Z, BEV_MAX_Z, BEV_MAX_X = BEV_PARAMS.MIN_Z, BEV_PARAMS.MAX_Y, BEV_PARAMS.MAX_X
+BEV_MIN_Z, BEV_MAX_Z, BEV_MAX_X = BEV_PARAMS.MIN_Z, BEV_PARAMS.MAX_Z, BEV_PARAMS.MAX_X
 
 BEV_RES = (BEV_MAX_Z - BEV_MIN_Z) / BEV_PARAMS.H  # m per pixel, ~0.19
-BEV_W = round(2 * BEV_MAX_X / BEV_RES)            # 514 px
+BEV_W = BEV_PARAMS.W                              # 414 px
 
 # viridis (matplotlib's default, as in project_depthmap) as a 256-entry RGB lookup table: low = purple, high = yellow
 _VIRIDIS_LUT = (colormaps["viridis"](np.arange(256))[:, :3] * 255).astype(np.uint8)

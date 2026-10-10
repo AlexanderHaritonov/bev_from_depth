@@ -3,6 +3,7 @@ import os
 import cv2
 
 from bev import draw_ego_car, points_to_bev
+from constants import CAM_H, CAM_W
 from data_loading.data_loading import DataLoader
 from point_cloud import depth_to_points, filter_points_for_bev
 
@@ -16,6 +17,7 @@ def _count_frames(root_folder):
 def _build_frame(dl, frame_number):
     """Camera image | BEV from the ground-truth depth, both 375 px high."""
     camera, _ = dl.load_stereo_pair(frame_number)
+    assert camera.shape[:2] == (CAM_H, CAM_W), f"camera image {camera.shape[:2]}, expected {(CAM_H, CAM_W)}"
     points = depth_to_points(dl.load_depth_gt(frame_number), dl.P)
     bev = points_to_bev(points[filter_points_for_bev(points)])
     draw_ego_car(bev)
