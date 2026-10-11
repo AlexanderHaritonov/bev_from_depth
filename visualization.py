@@ -76,3 +76,39 @@ def draw_depth_legend(image, vmax, title):
     the title, then the color ramp from 0 to vmax m."""
     draw_legend(image, [(None, f"{title} 0 m"), (_HSV_LUT[::-1], f"{vmax:g} m")], (6, 14),
                 color=(255, 255, 255), outline=(0, 0, 0), ramp_width=140)
+
+CHART_COLORS = ((0, 0, 0), (0, 114, 178), (204, 121, 167))  # black, blue, purple: not used in the agreement panels
+CHART_GRID_GREY = (230, 230, 230)
+CHART_LABEL_GREY = (150, 150, 150)
+
+def draw_iou_chart(ious, names, width, first_frame=0, height=150):
+    """IoU chart (height, width, 3), RGB uint8: one line per source over the frames of a drive.
+    ious: (frames, sources), nan where a frame has no value (yet), so the lines grow as the drive is processed.
+    names: one per source for the legend, colors from CHART_COLORS.
+    x: frame, counted from first_frame, y: IoU from 0 to 1. A dot marks each line's latest value."""
+    chart = np.full((height, width, 3), 255, dtype=np.uint8)
+    left, right, top, bottom = 30, width - 12, 24, height - 16  # plot area (px)
+
+    for value in (0, 0.25, 0.5, 0.75, 1):
+        y = round(bottom - value * (bottom - top))
+        cv2.line(chart, (left, y), (right, y), CHART_GRID_GREY, 1)
+        if value in (0, 0.5, 1):
+            _put_text(chart, f"{value:g}", (6, y + 4), LEGEND_SCALE, CHART_LABEL_GREY)
+    last_frame = str(first_frame + len(ious) - 1)
+    last_frame_width = cv2.getTextSize(last_frame, cv2.FONT_HERSHEY_PLAIN, LEGEND_SCALE, 1)[0][0]
+    _put_text(chart, f"frame {first_frame}", (left, height - 4), LEGEND_SCALE, CHART_LABEL_GREY)
+    _put_text(chart, last_frame, (right - last_frame_width, height - 4), LEGEND_SCALE, CHART_LABEL_GREY)
+
+    xs = np.round(np.linspace(left, right, len(ious))).astype(int)
+    for series, color in zip(ious.T, CHART_COLORS):
+        valid = ~np.isnan(series)
+        ys = np.round(bottom - np.nan_to_num(series) * (bottom - top)).astype(int)
+        # a segment between neighboring frames that both have a value
+        for i in np.flatnonzero(valid[:-1] & valid[1:]):
+            cv2.line(chart, (int(xs[i]), int(ys[i])), (int(xs[i + 1]), int(ys[i + 1])), color, 2, cv2.LINE_AA)
+        if valid.any():
+            latest = np.flatnonzero(valid)[-1]
+            cv2.circle(chart, (int(xs[latest]), int(ys[latest])), 3, color, -1, cv2.LINE_AA)
+
+    draw_legend(chart, [(None, "IoU per frame, whole window")] + list(zip(CHART_COLORS, names)), (left, 14))
+    return chart

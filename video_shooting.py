@@ -1,6 +1,7 @@
 import os
 
 import cv2
+import numpy as np
 
 from bev import draw_bev_panel, points_to_grey_bev
 from constants import BEV_PARAMS, CAM_H, CAM_W
@@ -8,10 +9,11 @@ from data_loading.data_loading import DataLoader
 from depth_sources.depth_sources import gt_points, lidar_points, mono_points, stereo_points
 from depth_sources.lidar_fusion import get_lidar_in_image_fov
 from depth_sources.mono_depth import load_mono_depth_model
-from occupancy import draw_occupancy_panel, iou_scores, occupancy_grid
-from visualization import draw_depth_legend, overlay_points_on_image
+from occupancy import BANDS, draw_occupancy_panel, iou_scores, occupancy_grid
+from visualization import draw_depth_legend, draw_iou_chart, overlay_points_on_image
 
 GT_MARGIN = 5  # no depth ground truth for the first and last 5 frames of a drive
+SOURCES = ("LiDAR", "stereo", "mono")  # order of the panels, the IoU scores and the chart lines
 
 def _count_frames(root_folder):
     """Number of left camera frames (image_02) in the sync folder."""
@@ -28,7 +30,8 @@ def _camera_image_with_lidar(dl, image, pc_velo):
 
 def _build_frame(dl, frame_number, mono_model):
     """Camera image on top, LiDAR | stereo | mono BEV below, then each source's occupancy grid
-    against the ground truth's: 1242 x 1125 px."""
+    against the ground truth's: 1242 x 1125 px.
+    Also returns the IoU scores (sources, scores): a row per source in SOURCES, as iou_scores."""
     left, right = dl.load_stereo_pair(frame_number)
     assert left.shape[:2] == (CAM_H, CAM_W), f"camera image {left.shape[:2]}, expected {(CAM_H, CAM_W)}"
     gt_depth = dl.load_depth_gt(frame_number)
@@ -57,11 +60,11 @@ def _build_frame(dl, frame_number, mono_model):
     stereo_panel = draw_occupancy_panel(stereo_grid, gt_grid, "stereo", stereo_iou)
     mono_panel = draw_occupancy_panel(mono_grid, gt_grid, "mono", mono_iou)
     agreement_row = cv2.hconcat([lidar_panel, stereo_panel, mono_panel])
-    return cv2.vconcat([camera_image, bev_row, agreement_row])
+    return cv2.vconcat([camera_image, bev_row, agreement_row]), np.array([lidar_iou, stereo_iou, mono_iou])
 
 def make_video(root_folder, output_dir="output", fps=10):
-    """Render camera / LiDAR | stereo | mono BEV / their occupancy against the ground truth for every frame
-    with depth ground truth into output_dir/<sequence name>.mp4, writing frame by frame."""
+    """Render camera / LiDAR | stereo | mono BEV / their occupancy against the ground truth / IoU chart for every frame
+    with depth ground truth into output_dir/<sequence name>.mp4, writing frame by frame: 1242 x 1275 px."""
     dl = DataLoader(root_folder)
     mono_model = load_mono_depth_model()
     frames_cnt = _count_frames(root_folder)
@@ -69,14 +72,22 @@ def make_video(root_folder, output_dir="output", fps=10):
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, os.path.basename(root_folder.rstrip("/")) + ".mp4")
 
+    frames = range(GT_MARGIN, frames_cnt - GT_MARGIN)
+    # IoU scores (frames, sources, scores), nan until a frame is done, and for skipped frames
+    ious = np.full((len(frames), len(SOURCES), 1 + len(BANDS)), np.nan)
+
     out = None
-    for idx in range(GT_MARGIN, frames_cnt - GT_MARGIN):
+    for i, idx in enumerate(frames):
         print(idx + 1, "of", frames_cnt)
         try:
-            frame = _build_frame(dl, idx, mono_model)
+            frame, ious[i] = _build_frame(dl, idx, mono_model)
         except (FileNotFoundError, cv2.error):
             print(f"skipping frame {idx}: missing file")
             continue
+
+        # the IoU over the whole window, for the frames so far
+        chart = draw_iou_chart(ious[:, :, 0], SOURCES, frame.shape[1], first_frame=GT_MARGIN)
+        frame = cv2.vconcat([frame, chart])
 
         # the mp4 writer drops the last row/column of odd-sized frames, so repeat them to get even sizes
         frame = cv2.copyMakeBorder(frame, 0, frame.shape[0] % 2, 0, frame.shape[1] % 2, cv2.BORDER_REPLICATE)
