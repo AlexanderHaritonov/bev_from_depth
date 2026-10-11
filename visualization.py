@@ -15,16 +15,21 @@ def depth_to_color(depth_map, vmax):
     color[depth_map <= 0] = 0  # invalid (no depth) -> blank
     return color
 
-def overlay_points_on_image(image, pts_2d, depths, vmax):
-    """Draw a filled circle at each 2D point, colored by depth."""
+def overlay_points_on_image(image, pts_2d, depths, vmax, alpha=0.25):
+    """Draw a filled circle at each 2D point, colored by depth.
+    vmax: depth (m) at the far end of the color scale, deeper points get the same color.
+    alpha: opacity of the dots, 1 = opaque."""
     out = image.copy()
     normalized = np.clip(depths, 0, vmax) / vmax
     idx = ((1.0 - normalized) * 255).astype(np.uint8)
     colors = _HSV_LUT[idx]
     for (x, y), color in zip(pts_2d, colors):
-        cv2.circle(out, (int(np.round(x)), int(np.round(y))), 2,
-                   color=tuple(int(c) for c in color), thickness=-1)
-    return out
+        center = (int(np.round(x)), int(np.round(y)))
+        radius = 2
+        thickness=-1 # fill the circle
+        cv2.circle(out, center, radius, color=tuple(int(c) for c in color), thickness=thickness)
+    # blend with the original: pixels without a dot are the same in both, so they stay unchanged
+    return cv2.addWeighted(out, alpha, image, 1 - alpha, 0)
 
 def draw_panel_label(image, text, color=(255, 255, 255)):
     """Small label in a panel's top-left corner."""
