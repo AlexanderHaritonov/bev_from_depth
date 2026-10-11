@@ -4,15 +4,13 @@ import cv2
 import numpy as np
 
 from bev import draw_bev_panel, points_to_grey_bev
-from constants import BEV_PARAMS, CAM_H, CAM_W
+from constants import DISTANCE_BANDS, BEV_PARAMS, CAM_H, CAM_W, GT_MARGIN
 from data_loading.data_loading import DataLoader
 from depth_sources.depth_sources import gt_points, lidar_points, mono_points, stereo_points
 from depth_sources.lidar_fusion import get_lidar_in_image_fov
 from depth_sources.mono_depth import load_mono_depth_model
-from occupancy import BANDS, draw_occupancy_panel, iou_scores, iou_table, mean_iou_scores, occupancy_grid
+from occupancy import draw_occupancy_panel, iou_scores, iou_table, mean_iou_scores, occupancy_grid
 from visualization import draw_depth_legend, draw_iou_chart, draw_table, overlay_points_on_image
-
-GT_MARGIN = 5  # no depth ground truth for the first and last 5 frames of a drive
 
 SOURCES = ("LiDAR", "stereo (SGBM)", "mono (DepthAnything)")
 END_CARD_SECONDS = 3  # the last frame with the mean IoU table, held at the end of the video
@@ -78,7 +76,7 @@ def make_video(root_folder, output_dir="output", fps=10):
 
     frames = range(GT_MARGIN, frames_cnt - GT_MARGIN)
     # IoU scores (frames, sources, scores), nan until a frame is done, and for skipped frames
-    ious = np.full((len(frames), len(SOURCES), 1 + len(BANDS)), np.nan)
+    ious = np.full((len(frames), len(SOURCES), 1 + len(DISTANCE_BANDS)), np.nan)
 
     out = None
     for i, idx in enumerate(frames):

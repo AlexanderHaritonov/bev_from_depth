@@ -1,6 +1,6 @@
 import numpy as np
 
-from constants import BEV_PARAMS
+from constants import BEV_PARAMS, CAM_HEIGHT, MAX_HEIGHT, MIN_HEIGHT
 
 # Reference (no numpy), same result as depth_to_points below:
 #
@@ -48,10 +48,6 @@ def depth_jumps(depth, max_relative_jump):
     jumps[1:, :] |= j
 
     return jumps
-
-CAM_HEIGHT = 1.65  # KITTI camera mounting height above ground (m)
-MIN_HEIGHT = CAM_HEIGHT - 1.2  # keep points less than 1.2 m below the camera (m)
-MAX_HEIGHT = np.inf            # no upper limit
 
 def filter_points_for_bev(points, min_height=MIN_HEIGHT, max_height=MAX_HEIGHT, max_relative_jump=None):
     """Boolean mask (H, W) of points to keep.

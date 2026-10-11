@@ -1,9 +1,8 @@
+from constants import MAX_RELATIVE_JUMP
 from .lidar_fusion import velo_to_cam
 from .mono_depth import get_mono_depth
 from point_cloud import depth_to_points, filter_points_for_bev
 from .stereo import get_depth_and_disparity
-
-MAX_RELATIVE_JUMP = 0.1  # flying-pixel filter for stereo and mono depth
 
 # Each function returns filtered camera-frame points (N, 3) as x, y, z (m), ready for points_to_bev.
 
