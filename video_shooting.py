@@ -8,6 +8,7 @@ from data_loading.data_loading import DataLoader
 from depth_sources.depth_sources import gt_points, lidar_points, mono_points, stereo_points
 from depth_sources.lidar_fusion import get_lidar_in_image_fov
 from depth_sources.mono_depth import load_mono_depth_model
+from occupancy import draw_occupancy_panel, occupancy_grid
 from visualization import overlay_points_on_image
 
 GT_MARGIN = 5  # no depth ground truth for the first and last 5 frames of a drive
@@ -24,22 +25,35 @@ def _camera_image_with_lidar(dl, image, pc_velo):
     return overlay_points_on_image(image, pts_2d[:, :2], pts_2d[:, 2], vmax=BEV_PARAMS.MAX_Z)
 
 def _build_frame(dl, frame_number, mono_model):
-    """Camera image on top, LiDAR | stereo | mono BEV below: 1242 x 750 px."""
+    """Camera image on top, LiDAR | stereo | mono BEV below, then each source's occupancy grid
+    against the ground truth's: 1242 x 1125 px."""
     left, right = dl.load_stereo_pair(frame_number)
     assert left.shape[:2] == (CAM_H, CAM_W), f"camera image {left.shape[:2]}, expected {(CAM_H, CAM_W)}"
     gt_depth = dl.load_depth_gt(frame_number)
-    gt_bev = points_to_grey_bev(gt_points(dl, gt_depth))
+    gt = gt_points(dl, gt_depth)
+    gt_bev = points_to_grey_bev(gt)
 
     pc_velo = dl.load_point_cloud(frame_number)
     camera_image = _camera_image_with_lidar(dl, left, pc_velo)
-    lidar = draw_bev_panel(lidar_points(dl, pc_velo), "LiDAR")
-    stereo = draw_bev_panel(stereo_points(dl, left, right, gt_depth), "stereo", gt_bev)
-    mono = draw_bev_panel(mono_points(dl, left, mono_model, gt_depth), "mono", gt_bev)
-    return cv2.vconcat([camera_image, cv2.hconcat([lidar, stereo, mono])])
+    lidar = lidar_points(dl, pc_velo)
+    stereo = stereo_points(dl, left, right, gt_depth)
+    mono = mono_points(dl, left, mono_model, gt_depth)
+    bev_row = cv2.hconcat([draw_bev_panel(lidar, "LiDAR"),
+                           draw_bev_panel(stereo, "stereo", gt_bev),
+                           draw_bev_panel(mono, "mono", gt_bev)])
+
+    # LiDAR: only the points inside the camera image, so all three sources cover the same area
+    lidar_in_image = lidar_points(dl, get_lidar_in_image_fov(pc_velo, dl.P, dl.R0, dl.V2C, 0, 0, CAM_W, CAM_H))
+    gt_grid = occupancy_grid(gt)
+    lidar_panel = draw_occupancy_panel(occupancy_grid(lidar_in_image), gt_grid, "LiDAR vs ground truth")
+    stereo_panel = draw_occupancy_panel(occupancy_grid(stereo), gt_grid, "stereo vs ground truth")
+    mono_panel = draw_occupancy_panel(occupancy_grid(mono), gt_grid, "mono vs ground truth")
+    agreement_row = cv2.hconcat([lidar_panel, stereo_panel, mono_panel])
+    return cv2.vconcat([camera_image, bev_row, agreement_row])
 
 def make_video(root_folder, output_dir="output", fps=10):
-    """Render camera / LiDAR | stereo | mono BEV for every frame with depth ground truth into output_dir/<sequence name>.mp4,
-    writing frame by frame."""
+    """Render camera / LiDAR | stereo | mono BEV / their occupancy against the ground truth for every frame
+    with depth ground truth into output_dir/<sequence name>.mp4, writing frame by frame."""
     dl = DataLoader(root_folder)
     mono_model = load_mono_depth_model()
     frames_cnt = _count_frames(root_folder)
