@@ -31,8 +31,13 @@ def overlay_points_on_image(image, pts_2d, depths, vmax, alpha=0.25):
     # blend with the original: pixels without a dot are the same in both, so they stay unchanged
     return cv2.addWeighted(out, alpha, image, 1 - alpha, 0)
 
-def draw_panel_label(image, text, color=(255, 255, 255)):
-    """Small label in a panel's top-left corner."""
+def draw_panel_label(image, text, color=(255, 255, 255), outline=None):
+    """Small label in a panel's top-left corner.
+    outline: color drawn around the letters, keeps the label readable over other content."""
     out = image.copy()
+    if outline is not None:
+        # the same text shifted by 1 px in all 8 directions; a thicker putText is wider in OpenCV 5, so it wouldn't line up
+        for dx, dy in ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)):
+            cv2.putText(out, text, (6 + dx, 18 + dy), cv2.FONT_HERSHEY_PLAIN, 0.9, outline, 1)
     cv2.putText(out, text, (6, 18), cv2.FONT_HERSHEY_PLAIN, 0.9, color, 1)
     return out

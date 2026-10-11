@@ -10,6 +10,7 @@ BANDS = ((0, 20), (20, 40), (40, 70))  # distance bands ahead of the camera (m)
 # agreement panel colors (colorblind-safe green and orange); only in the ground truth: GT_GREY, as in the BEV panels
 BOTH_COLOR = (0, 158, 115)        # occupied in the source and in the ground truth
 SOURCE_ONLY_COLOR = (213, 94, 0)  # occupied only in the source
+BAND_LINE_GREY = (150, 150, 150)  # lines between the distance bands, darker than the grid
 
 # cell edges lie on whole meters from the camera, so they line up with the 10 m grid lines and the band limits
 GRID_MIN_X = -np.ceil(BEV_PARAMS.MAX_X / CELL) * CELL                     # left edge of the grid (m): -41
@@ -41,10 +42,21 @@ def iou_scores(grid, gt_grid):
     bands = [iou(grid[_band_rows(band)], gt_grid[_band_rows(band)]) for band in BANDS]
     return np.array([iou(grid, gt_grid)] + bands)
 
+def iou_label(name, scores):
+    """Panel label from a source's iou_scores: the whole window first, then the bands, "-" where there is no IoU."""
+    whole, *bands = ["-" if np.isnan(score) else f"{score:.2f}" for score in scores]
+    return f"{name} IoU {whole} ({' / '.join(bands)})"
+
+def _draw_band_lines(bev):
+    """Darker lines between the distance bands (in place), only on empty (white) pixels, like the grid."""
+    for _, far in BANDS[:-1]:
+        line = bev[round((BEV_PARAMS.MAX_Z - far) / BEV_RES)]
+        line[(line == 255).all(axis=1)] = BAND_LINE_GREY
+
 def draw_occupancy_panel(grid, gt_grid, label):
     """Agreement panel, same size and window as a BEV panel: a source's occupancy grid against the ground truth's.
     Cells occupied in both in green, only in the source in orange, only in the ground truth in grey,
-    with grid, ego car and label."""
+    with grid, band lines, ego car and label."""
     cells = np.full((GRID_ROWS, GRID_COLS, 3), 255, dtype=np.uint8)
     cells[grid & gt_grid] = BOTH_COLOR
     cells[grid & ~gt_grid] = SOURCE_ONLY_COLOR
@@ -56,6 +68,7 @@ def draw_occupancy_panel(grid, gt_grid, label):
     cols = ((x - GRID_MIN_X) / CELL).astype(int)
     bev = cells[np.ix_(rows, cols)]
 
+    _draw_band_lines(bev)  # before the grid, which leaves them alone
     draw_grid(bev)
     draw_ego_car(bev)
-    return draw_panel_label(bev, label, color=(0, 0, 0))
+    return draw_panel_label(bev, label, color=(0, 0, 0), outline=(255, 255, 255))
