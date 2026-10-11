@@ -42,10 +42,29 @@ def iou_scores(grid, gt_grid):
     bands = [iou(grid[_band_rows(band)], gt_grid[_band_rows(band)]) for band in BANDS]
     return np.array([iou(grid, gt_grid)] + bands)
 
+def _iou_text(score):
+    """An IoU with two decimals, "-" where there is none (nan)."""
+    return "-" if np.isnan(score) else f"{score:.2f}"
+
 def iou_label(name, scores):
-    """Panel label from a source's iou_scores: the whole window first, then the bands, "-" where there is no IoU."""
-    whole, *bands = ["-" if np.isnan(score) else f"{score:.2f}" for score in scores]
+    """Panel label from a source's iou_scores: the whole window first, then the bands."""
+    whole, *bands = [_iou_text(score) for score in scores]
     return f"{name} IoU {whole} ({' / '.join(bands)})"
+
+def mean_iou_scores(ious):
+    """Mean of iou_scores over the frames (axis 0), leaving out nan; nan where no frame has a value."""
+    counts = (~np.isnan(ious)).sum(axis=0)
+    return np.where(counts > 0, np.nansum(ious, axis=0) / np.maximum(counts, 1), np.nan)
+
+def iou_table(names, scores):
+    """IoU scores (sources, scores) as a table of strings: a header row, then a row per source.
+    Columns: the source's name, the whole window, then the bands."""
+    header = ["", "whole window"] + [f"{near}-{far} m" for near, far in BANDS]
+    table = [header]
+    for name, row in zip(names, scores):
+        cells = [_iou_text(score) for score in row]
+        table.append([name] + cells)
+    return table
 
 def _draw_band_lines(bev):
     """Darker lines between the distance bands (in place), only on empty (white) pixels, like the grid."""

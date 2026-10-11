@@ -77,6 +77,33 @@ def draw_depth_legend(image, vmax, title):
     draw_legend(image, [(None, f"{title} 0 m"), (_HSV_LUT[::-1], f"{vmax:g} m")], (6, 14),
                 color=(255, 255, 255), outline=(0, 0, 0), ramp_width=140)
 
+def draw_table(image, title, rows, scale=1.6, dim=0.25):
+    """Table in white over the dimmed image, centered (returns a copy): the title, then the rows.
+    rows: lists of strings, one per column; the first column is left-aligned, the others right-aligned.
+    dim: brightness of the image under the table, 1 = unchanged."""
+    out = (image * dim).astype(np.uint8)
+
+    def text_width(text):
+        return cv2.getTextSize(text, cv2.FONT_HERSHEY_PLAIN, scale, 1)[0][0]
+
+    row_height, gap = round(26 * scale), round(28 * scale)  # between baselines, between columns (px)
+    # each column is as wide as its widest cell
+    col_widths = []
+    for col in range(len(rows[0])):
+        cells = [row[col] for row in rows]
+        col_widths.append(max(text_width(cell) for cell in cells))
+    x0 = (out.shape[1] - sum(col_widths) - gap * (len(col_widths) - 1)) // 2
+    y = (out.shape[0] - row_height * len(rows)) // 2  # baseline of the title
+
+    _put_text(out, title, (x0, y), scale, (255, 255, 255))
+    for row in rows:
+        y += row_height
+        x = x0
+        for col, (cell, col_width) in enumerate(zip(row, col_widths)):
+            _put_text(out, cell, (x if col == 0 else x + col_width - text_width(cell), y), scale, (255, 255, 255))
+            x += col_width + gap
+    return out
+
 CHART_COLORS = ((0, 0, 0), (0, 114, 178), (204, 121, 167))  # black, blue, purple: not used in the agreement panels
 CHART_GRID_GREY = (230, 230, 230)
 CHART_LABEL_GREY = (150, 150, 150)

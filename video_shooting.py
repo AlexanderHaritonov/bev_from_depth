@@ -9,11 +9,12 @@ from data_loading.data_loading import DataLoader
 from depth_sources.depth_sources import gt_points, lidar_points, mono_points, stereo_points
 from depth_sources.lidar_fusion import get_lidar_in_image_fov
 from depth_sources.mono_depth import load_mono_depth_model
-from occupancy import BANDS, draw_occupancy_panel, iou_scores, occupancy_grid
-from visualization import draw_depth_legend, draw_iou_chart, overlay_points_on_image
+from occupancy import BANDS, draw_occupancy_panel, iou_scores, iou_table, mean_iou_scores, occupancy_grid
+from visualization import draw_depth_legend, draw_iou_chart, draw_table, overlay_points_on_image
 
 GT_MARGIN = 5  # no depth ground truth for the first and last 5 frames of a drive
 SOURCES = ("LiDAR", "stereo", "mono")  # order of the panels, the IoU scores and the chart lines
+END_CARD_SECONDS = 3  # the last frame with the mean IoU table, held at the end of the video
 
 def _count_frames(root_folder):
     """Number of left camera frames (image_02) in the sync folder."""
@@ -64,7 +65,8 @@ def _build_frame(dl, frame_number, mono_model):
 
 def make_video(root_folder, output_dir="output", fps=10):
     """Render camera / LiDAR | stereo | mono BEV / their occupancy against the ground truth / IoU chart for every frame
-    with depth ground truth into output_dir/<sequence name>.mp4, writing frame by frame: 1242 x 1275 px."""
+    with depth ground truth into output_dir/<sequence name>.mp4, writing frame by frame: 1242 x 1275 px.
+    At the end, print the drive's mean IoU per source as a table and hold it as an end card for END_CARD_SECONDS."""
     dl = DataLoader(root_folder)
     mono_model = load_mono_depth_model()
     frames_cnt = _count_frames(root_folder)
@@ -97,7 +99,19 @@ def make_video(root_folder, output_dir="output", fps=10):
             out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
         out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
 
+    # the drive's mean IoU per source: in the terminal, and as the end card of the video
+    frames_done = int((~np.isnan(ious[:, 0, 0])).sum())
+    title = f"Mean IoU with the ground truth over {frames_done} frames"
+    table = iou_table(SOURCES, mean_iou_scores(ious))
+    print(title)
+    for row in table:
+        print(f"{row[0]:8}" + "".join(f"{cell:>14}" for cell in row[1:]))
+
     if out is not None:
+        # end card: the last frame, with the table over the dimmed camera image
+        frame[:CAM_H] = draw_table(frame[:CAM_H], title, table)
+        for _ in range(round(END_CARD_SECONDS * fps)):
+            out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
         out.release()
     return output_path
 
