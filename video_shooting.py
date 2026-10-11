@@ -13,7 +13,8 @@ from occupancy import BANDS, draw_occupancy_panel, iou_scores, iou_table, mean_i
 from visualization import draw_depth_legend, draw_iou_chart, draw_table, overlay_points_on_image
 
 GT_MARGIN = 5  # no depth ground truth for the first and last 5 frames of a drive
-SOURCES = ("LiDAR", "stereo", "mono")  # order of the panels, the IoU scores and the chart lines
+
+SOURCES = ("LiDAR", "stereo (SGBM)", "mono (DepthAnything)")
 END_CARD_SECONDS = 3  # the last frame with the mean IoU table, held at the end of the video
 
 def _count_frames(root_folder):
@@ -44,9 +45,10 @@ def _build_frame(dl, frame_number, mono_model):
     lidar = lidar_points(dl, pc_velo)
     stereo = stereo_points(dl, left, right, gt_depth)
     mono = mono_points(dl, left, mono_model, gt_depth)
-    bev_row = cv2.hconcat([draw_bev_panel(lidar, "LiDAR"),
-                           draw_bev_panel(stereo, "stereo", gt_bev),
-                           draw_bev_panel(mono, "mono", gt_bev)])
+    lidar_caption, stereo_caption, mono_caption = SOURCES
+    bev_row = cv2.hconcat([draw_bev_panel(lidar, lidar_caption),
+                           draw_bev_panel(stereo, stereo_caption, gt_bev),
+                           draw_bev_panel(mono, mono_caption, gt_bev)])
 
     # LiDAR: only the points inside the camera image, so all three sources cover the same area
     lidar_in_image = lidar_points(dl, get_lidar_in_image_fov(pc_velo, dl.P, dl.R0, dl.V2C, 0, 0, CAM_W, CAM_H))
@@ -104,8 +106,9 @@ def make_video(root_folder, output_dir="output", fps=10):
     title = f"Mean IoU with the ground truth over {frames_done} frames"
     table = iou_table(SOURCES, mean_iou_scores(ious))
     print(title)
+    name_width = max(len(name) for name in SOURCES) + 2
     for row in table:
-        print(f"{row[0]:8}" + "".join(f"{cell:>14}" for cell in row[1:]))
+        print(f"{row[0]:{name_width}}" + "".join(f"{cell:>14}" for cell in row[1:]))
 
     if out is not None:
         # end card: the last frame, with the table over the dimmed camera image
@@ -116,5 +119,5 @@ def make_video(root_folder, output_dir="output", fps=10):
     return output_path
 
 if __name__ == "__main__":
-    output_path = make_video("../kitty_data/drive1/2011_09_26_drive_0001_sync")
+    output_path = make_video("../kitty_data/drive14/2011_09_26_drive_0014_sync")
     print(f"wrote {output_path}")

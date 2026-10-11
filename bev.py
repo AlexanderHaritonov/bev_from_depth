@@ -101,7 +101,7 @@ GRID_GREY = (230, 230, 230)  # grid lines, lighter than the ground truth
 GRID_LABEL_GREY = (150, 150, 150)
 GRID_STEP = 10  # m between grid lines
 
-# legends: one line in the strip below the 0 m line (always empty, points have z > 0), left and right of the ego car
+# legend entries in the strip below the 0 m line (always empty, points have z > 0), left and right of the ego car
 LEGEND_Y = BEV_PARAMS.H - 3                                        # text baseline (px)
 LEGEND_LEFT_X = 4                                                  # as the grid labels
 LEGEND_RIGHT_X = round((BEV_MAX_X + EGO_WIDTH / 2) / BEV_RES) + 6  # right of the ego car
@@ -168,12 +168,14 @@ def draw_ego_car(bev):
     cv2.rectangle(bev, (left, front), (right, rear), (0, 0, 0), 1)
 
 def draw_bev_panel(points, label, background=None):
-    """BEV panel: points in viridis, on background (grey ground truth) if given, with grid, ego car, legend and label."""
+    """BEV panel: points in viridis, on background (grey ground truth) if given, with grid, ego car,
+    and the label followed by the legend of the viridis colors. The legend of the grey is below the 0 m line,
+    there is no room for it after the longest label."""
     bev = points_to_bev(points, None if background is None else background.copy())
     draw_grid(bev)
     draw_ego_car(bev)
-    # full color at 14.1 m sideways, see points_to_bev
-    draw_legend(bev, [(None, "sideways 0 m"), (_VIRIDIS_LUT, "14+ m")], (LEGEND_LEFT_X, LEGEND_Y))
     if background is not None:
         draw_legend(bev, [(GT_GREY, "ground truth")], (LEGEND_RIGHT_X, LEGEND_Y))
-    return draw_panel_label(bev, label, color=(0, 0, 0))
+    # full color at 14.1 m sideways, see points_to_bev
+    legend = [(None, "sideways 0 m"), (_VIRIDIS_LUT, "14+ m")]
+    return draw_panel_label(bev, label, color=(0, 0, 0), outline=(255, 255, 255), legend=legend)

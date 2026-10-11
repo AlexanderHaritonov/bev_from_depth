@@ -41,41 +41,46 @@ def _put_text(image, text, org, scale, color, outline=None):
             cv2.putText(image, text, (x + dx, y + dy), cv2.FONT_HERSHEY_PLAIN, scale, outline, 1)
     cv2.putText(image, text, (x, y), cv2.FONT_HERSHEY_PLAIN, scale, color, 1)
 
-def draw_panel_label(image, text, color=(255, 255, 255), outline=None):
+def draw_panel_label(image, text, color=(255, 255, 255), outline=None, legend=None):
     """Small label in a panel's top-left corner.
     outline: color drawn around the letters, keeps the label readable over other content."""
     out = image.copy()
-    _put_text(out, text, (6, 18), 0.9, color, outline)
+    x, y, scale = 6, 18, 0.9
+    _put_text(out, text, (x, y), scale, color, outline)
+    if legend is not None:
+        x += cv2.getTextSize(text, cv2.FONT_HERSHEY_PLAIN, scale, 1)[0][0] + 12
+        draw_legend(out, legend, (x, y), color, outline)
     return out
 
 LEGEND_SCALE = 0.7  # font scale of the legends, as the BEV grid labels
 LEGEND_SWATCH = 8   # side of a color square and height of a color ramp (px)
 
-def draw_legend(image, entries, org, color=(0, 0, 0), outline=None, ramp_width=50):
+def draw_legend(image, entries, org, color=(0, 0, 0), outline=None, ramp_width=50, size=1):
     """One-line legend (in place), starting at org = (x, y of the text baseline).
     entries: (swatch, text) pairs, each drawn as the swatch followed by the text.
     swatch: an RGB color for a square, (N, 3) colors for a ramp of ramp_width px, or None for text only.
     outline: color drawn around the letters and the swatches."""
     x, y = org
+    font_scale, swatch_size = LEGEND_SCALE * size, round(LEGEND_SWATCH * size)
     for swatch, text in entries:
         if swatch is not None:
             swatch = np.asarray(swatch)
             is_ramp = swatch.ndim == 2
-            width = ramp_width if is_ramp else LEGEND_SWATCH
+            width = ramp_width if is_ramp else swatch_size
             # a ramp is resampled to its width; a single color fills the square
             colors = swatch[np.linspace(0, len(swatch) - 1, width).astype(int)] if is_ramp else swatch
             if outline is not None:
-                cv2.rectangle(image, (x - 1, y - LEGEND_SWATCH - 1), (x + width, y), outline, 1)
-            image[y - LEGEND_SWATCH:y, x:x + width] = colors
-            x += width + 3
-        _put_text(image, text, (x, y), LEGEND_SCALE, color, outline)
-        x += cv2.getTextSize(text, cv2.FONT_HERSHEY_PLAIN, LEGEND_SCALE, 1)[0][0] + 10
+                cv2.rectangle(image, (x - 1, y - swatch_size - 1), (x + width, y), outline, 1)
+            image[y - swatch_size:y, x:x + width] = colors
+            x += width + round(3 * size)
+        _put_text(image, text, (x, y), font_scale, color, outline)
+        x += cv2.getTextSize(text, cv2.FONT_HERSHEY_PLAIN, font_scale, 1)[0][0] + round(10 * size)
 
 def draw_depth_legend(image, vmax, title):
     """Legend for overlay_points_on_image in the image's top-left corner (in place):
-    the title, then the color ramp from 0 to vmax m."""
-    draw_legend(image, [(None, f"{title} 0 m"), (_HSV_LUT[::-1], f"{vmax:g} m")], (6, 14),
-                color=(255, 255, 255), outline=(0, 0, 0), ramp_width=140)
+    the title, then the color ramp from 0 to vmax m. Twice the size of the panel legends."""
+    draw_legend(image, [(None, f"{title} 0 m"), (_HSV_LUT[::-1], f"{vmax:g} m")], (6, 28),
+                color=(255, 255, 255), outline=(0, 0, 0), ramp_width=280, size=2)
 
 def draw_table(image, title, rows, scale=1.6, dim=0.25):
     """Table in white over the dimmed image, centered (returns a copy): the title, then the rows.
