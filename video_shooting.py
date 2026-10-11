@@ -8,8 +8,8 @@ from data_loading.data_loading import DataLoader
 from depth_sources.depth_sources import gt_points, lidar_points, mono_points, stereo_points
 from depth_sources.lidar_fusion import get_lidar_in_image_fov
 from depth_sources.mono_depth import load_mono_depth_model
-from occupancy import draw_occupancy_panel, iou_label, iou_scores, occupancy_grid
-from visualization import overlay_points_on_image
+from occupancy import draw_occupancy_panel, iou_scores, occupancy_grid
+from visualization import draw_depth_legend, overlay_points_on_image
 
 GT_MARGIN = 5  # no depth ground truth for the first and last 5 frames of a drive
 
@@ -19,10 +19,12 @@ def _count_frames(root_folder):
     return len([f for f in os.listdir(data_dir) if f.endswith(".png")])
 
 def _camera_image_with_lidar(dl, image, pc_velo):
-    """Camera image with the LiDAR points inside it as dots, colored by distance along the optical axis."""
+    """Camera image with the LiDAR points inside it as dots, colored by distance along the optical axis, with legend."""
     _, pts_2d, fov_inds = get_lidar_in_image_fov(pc_velo, dl.P, dl.R0, dl.V2C, 0, 0, CAM_W, CAM_H, return_more=True)
     pts_2d = pts_2d[fov_inds]
-    return overlay_points_on_image(image, pts_2d[:, :2], pts_2d[:, 2], vmax=BEV_PARAMS.MAX_Z)
+    camera_image = overlay_points_on_image(image, pts_2d[:, :2], pts_2d[:, 2], vmax=BEV_PARAMS.MAX_Z)
+    draw_depth_legend(camera_image, BEV_PARAMS.MAX_Z, "LiDAR distance")
+    return camera_image
 
 def _build_frame(dl, frame_number, mono_model):
     """Camera image on top, LiDAR | stereo | mono BEV below, then each source's occupancy grid
@@ -51,9 +53,9 @@ def _build_frame(dl, frame_number, mono_model):
     lidar_iou = iou_scores(lidar_grid, gt_grid)
     stereo_iou = iou_scores(stereo_grid, gt_grid)
     mono_iou = iou_scores(mono_grid, gt_grid)
-    lidar_panel = draw_occupancy_panel(lidar_grid, gt_grid, iou_label("LiDAR", lidar_iou))
-    stereo_panel = draw_occupancy_panel(stereo_grid, gt_grid, iou_label("stereo", stereo_iou))
-    mono_panel = draw_occupancy_panel(mono_grid, gt_grid, iou_label("mono", mono_iou))
+    lidar_panel = draw_occupancy_panel(lidar_grid, gt_grid, "LiDAR", lidar_iou)
+    stereo_panel = draw_occupancy_panel(stereo_grid, gt_grid, "stereo", stereo_iou)
+    mono_panel = draw_occupancy_panel(mono_grid, gt_grid, "mono", mono_iou)
     agreement_row = cv2.hconcat([lidar_panel, stereo_panel, mono_panel])
     return cv2.vconcat([camera_image, bev_row, agreement_row])
 

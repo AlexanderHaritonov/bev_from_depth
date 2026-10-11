@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import colormaps
 
 from constants import BEV_PARAMS, EGO_WIDTH, EGO_LENGTH, EGO_FRONT
-from visualization import draw_panel_label
+from visualization import draw_legend, draw_panel_label
 
 BEV_MIN_Z, BEV_MAX_Z, BEV_MAX_X = BEV_PARAMS.MIN_Z, BEV_PARAMS.MAX_Z, BEV_PARAMS.MAX_X
 
@@ -101,6 +101,11 @@ GRID_GREY = (230, 230, 230)  # grid lines, lighter than the ground truth
 GRID_LABEL_GREY = (150, 150, 150)
 GRID_STEP = 10  # m between grid lines
 
+# legends: one line in the strip below the 0 m line (always empty, points have z > 0), left and right of the ego car
+LEGEND_Y = BEV_PARAMS.H - 3                                        # text baseline (px)
+LEGEND_LEFT_X = 4                                                  # as the grid labels
+LEGEND_RIGHT_X = round((BEV_MAX_X + EGO_WIDTH / 2) / BEV_RES) + 6  # right of the ego car
+
 def _bev_indices(points3d):
     """Takes filtered camera-frame points (N, 3) as x, y, z (m)
     and computes their indices in the BEV image (rows and columns)."""
@@ -163,8 +168,12 @@ def draw_ego_car(bev):
     cv2.rectangle(bev, (left, front), (right, rear), (0, 0, 0), 1)
 
 def draw_bev_panel(points, label, background=None):
-    """BEV panel: points in viridis, on background (grey ground truth) if given, with grid, ego car and label."""
+    """BEV panel: points in viridis, on background (grey ground truth) if given, with grid, ego car, legend and label."""
     bev = points_to_bev(points, None if background is None else background.copy())
     draw_grid(bev)
     draw_ego_car(bev)
+    # full color at 14.1 m sideways, see points_to_bev
+    draw_legend(bev, [(None, "sideways 0 m"), (_VIRIDIS_LUT, "14+ m")], (LEGEND_LEFT_X, LEGEND_Y))
+    if background is not None:
+        draw_legend(bev, [(GT_GREY, "ground truth")], (LEGEND_RIGHT_X, LEGEND_Y))
     return draw_panel_label(bev, label, color=(0, 0, 0))

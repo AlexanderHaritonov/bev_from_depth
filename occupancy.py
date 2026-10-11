@@ -1,8 +1,8 @@
 import numpy as np
 
-from bev import BEV_RES, BEV_W, GT_GREY, draw_ego_car, draw_grid
+from bev import BEV_RES, BEV_W, GT_GREY, LEGEND_LEFT_X, LEGEND_RIGHT_X, LEGEND_Y, draw_ego_car, draw_grid
 from constants import BEV_PARAMS
-from visualization import draw_panel_label
+from visualization import draw_legend, draw_panel_label
 
 CELL = 1.0  # occupancy grid cell size (m)
 BANDS = ((0, 20), (20, 40), (40, 70))  # distance bands ahead of the camera (m)
@@ -53,10 +53,10 @@ def _draw_band_lines(bev):
         line = bev[round((BEV_PARAMS.MAX_Z - far) / BEV_RES)]
         line[(line == 255).all(axis=1)] = BAND_LINE_GREY
 
-def draw_occupancy_panel(grid, gt_grid, label):
+def draw_occupancy_panel(grid, gt_grid, name, scores):
     """Agreement panel, same size and window as a BEV panel: a source's occupancy grid against the ground truth's.
     Cells occupied in both in green, only in the source in orange, only in the ground truth in grey,
-    with grid, band lines, ego car and label."""
+    with grid, band lines, ego car, legend and the label from the source's name and iou_scores."""
     cells = np.full((GRID_ROWS, GRID_COLS, 3), 255, dtype=np.uint8)
     cells[grid & gt_grid] = BOTH_COLOR
     cells[grid & ~gt_grid] = SOURCE_ONLY_COLOR
@@ -71,4 +71,6 @@ def draw_occupancy_panel(grid, gt_grid, label):
     _draw_band_lines(bev)  # before the grid, which leaves them alone
     draw_grid(bev)
     draw_ego_car(bev)
-    return draw_panel_label(bev, label, color=(0, 0, 0), outline=(255, 255, 255))
+    draw_legend(bev, [(BOTH_COLOR, "both"), (SOURCE_ONLY_COLOR, f"only {name}")], (LEGEND_LEFT_X, LEGEND_Y))
+    draw_legend(bev, [(GT_GREY, "only ground truth")], (LEGEND_RIGHT_X, LEGEND_Y))
+    return draw_panel_label(bev, iou_label(name, scores), color=(0, 0, 0), outline=(255, 255, 255))
