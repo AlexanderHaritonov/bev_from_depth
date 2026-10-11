@@ -2,13 +2,13 @@ import os
 
 import cv2
 
-from bev import draw_ego_car, points_to_bev, points_to_grey_bev
+from bev import draw_bev_panel, points_to_grey_bev
 from constants import BEV_PARAMS, CAM_H, CAM_W
 from data_loading.data_loading import DataLoader
 from depth_sources.depth_sources import gt_points, lidar_points, mono_points, stereo_points
 from depth_sources.lidar_fusion import get_lidar_in_image_fov
 from depth_sources.mono_depth import load_mono_depth_model
-from visualization import draw_panel_label, overlay_points_on_image
+from visualization import overlay_points_on_image
 
 GT_MARGIN = 5  # no depth ground truth for the first and last 5 frames of a drive
 
@@ -16,12 +16,6 @@ def _count_frames(root_folder):
     """Number of left camera frames (image_02) in the sync folder."""
     data_dir = os.path.join(root_folder, "image_02", "data")
     return len([f for f in os.listdir(data_dir) if f.endswith(".png")])
-
-def _panel(points, label, background=None):
-    """BEV panel: points in viridis, on background (grey ground truth) if given, with ego car and label."""
-    bev = points_to_bev(points, None if background is None else background.copy())
-    draw_ego_car(bev)
-    return draw_panel_label(bev, label, color=(0, 0, 0))
 
 def _camera_image_with_lidar(dl, image, pc_velo):
     """Camera image with the LiDAR points inside it as dots, colored by distance along the optical axis."""
@@ -38,9 +32,9 @@ def _build_frame(dl, frame_number, mono_model):
 
     pc_velo = dl.load_point_cloud(frame_number)
     camera_image = _camera_image_with_lidar(dl, left, pc_velo)
-    lidar = _panel(lidar_points(dl, pc_velo), "LiDAR")
-    stereo = _panel(stereo_points(dl, left, right, gt_depth), "stereo", gt_bev)
-    mono = _panel(mono_points(dl, left, mono_model, gt_depth), "mono", gt_bev)
+    lidar = draw_bev_panel(lidar_points(dl, pc_velo), "LiDAR")
+    stereo = draw_bev_panel(stereo_points(dl, left, right, gt_depth), "stereo", gt_bev)
+    mono = draw_bev_panel(mono_points(dl, left, mono_model, gt_depth), "mono", gt_bev)
     return cv2.vconcat([camera_image, cv2.hconcat([lidar, stereo, mono])])
 
 def make_video(root_folder, output_dir="output", fps=10):

@@ -3,6 +3,7 @@ import numpy as np
 from matplotlib import colormaps
 
 from constants import BEV_PARAMS, EGO_WIDTH, EGO_LENGTH, EGO_FRONT
+from visualization import draw_panel_label
 
 BEV_MIN_Z, BEV_MAX_Z, BEV_MAX_X = BEV_PARAMS.MIN_Z, BEV_PARAMS.MAX_Z, BEV_PARAMS.MAX_X
 
@@ -96,6 +97,9 @@ _VIRIDIS_LUT = (colormaps["viridis"](np.arange(256))[:, :3] * 255).astype(np.uin
 # project_topview(cam_coords, image, colors)  # fix
 
 GT_GREY = (200, 200, 200)  # ground truth under the stereo and mono points
+GRID_GREY = (230, 230, 230)  # grid lines, lighter than the ground truth
+GRID_LABEL_GREY = (150, 150, 150)
+GRID_STEP = 10  # m between grid lines
 
 def _bev_indices(points3d):
     """Takes filtered camera-frame points (N, 3) as x, y, z (m)
@@ -134,6 +138,22 @@ def points_to_grey_bev(points):
     bev[rows, cols] = GT_GREY
     return bev
 
+def draw_grid(bev):
+    """Grid lines every GRID_STEP m around the camera, with the distance ahead as labels on the left (in place).
+    Drawn only on empty (white) pixels, so the grid stays behind the points."""
+    grid = bev.copy()
+    for z in range(0, int(BEV_MAX_Z) + 1, GRID_STEP):
+        row = round((BEV_MAX_Z - z) / BEV_RES)
+        cv2.line(grid, (0, row), (BEV_W - 1, row), GRID_GREY, 1)
+        cv2.putText(grid, f"{z} m", (4, row - 3), cv2.FONT_HERSHEY_PLAIN, 0.7, GRID_LABEL_GREY, 1)
+    max_x = int(BEV_MAX_X) // GRID_STEP * GRID_STEP
+    for x in range(-max_x, max_x + 1, GRID_STEP):
+        col = round((x + BEV_MAX_X) / BEV_RES)
+        cv2.line(grid, (col, 0), (col, BEV_PARAMS.H - 1), GRID_GREY, 1)
+
+    empty = (bev == 255).all(axis=2)
+    bev[empty] = grid[empty]
+
 def draw_ego_car(bev):
     """Black box for the ego car at the bottom center, around the camera (in place)."""
     left = round((BEV_MAX_X - EGO_WIDTH / 2) / BEV_RES)
@@ -141,3 +161,10 @@ def draw_ego_car(bev):
     front = round((BEV_MAX_Z - EGO_FRONT) / BEV_RES)
     rear = round((BEV_MAX_Z - (EGO_FRONT - EGO_LENGTH)) / BEV_RES)
     cv2.rectangle(bev, (left, front), (right, rear), (0, 0, 0), 1)
+
+def draw_bev_panel(points, label, background=None):
+    """BEV panel: points in viridis, on background (grey ground truth) if given, with grid, ego car and label."""
+    bev = points_to_bev(points, None if background is None else background.copy())
+    draw_grid(bev)
+    draw_ego_car(bev)
+    return draw_panel_label(bev, label, color=(0, 0, 0))
